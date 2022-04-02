@@ -62,16 +62,18 @@ async def client():
     Y_ORIG = Pure(int(args[7]), int(args[8]))
 
     while True:
-      await websocket.send("free")
-      command, *args = (await websocket.recv()).split(" ")
-      if command == "chill":
+      try:
+        await websocket.send("free")
+        command, *args = (await websocket.recv()).split(" ")
+        if command == "chill":
+          break
+        itera = point(int(args[0]), int(args[1]))
+        await websocket.send(f"ready {args[0]} {args[1]} {itera}")
+        print(args, itera)
+        command = await websocket.recv()
+        if command == "done":
+          break
+      except KeyboardInterrupt:
         break
-      itera = point(int(args[0]), int(args[1]))
-      await websocket.send(f"ready {args[0]} {args[1]} {itera}")
-      print(args, itera)
-      command = await websocket.recv()
-      if command == "done":
-        break
-
 
 asyncio.run(client())

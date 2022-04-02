@@ -4,8 +4,8 @@ import cv2
 import numpy
 from pure import Pure
 
-WIDTH = 50
-HEIGHT = 50
+WIDTH = 1000
+HEIGHT = 1000
 MAX_ITER = 500
 ZOOM = Pure(200)
 X_ORIG = Pure(-129, 2)
@@ -50,7 +50,10 @@ async def server(websocket, fin, todo, out, worker):
       else:
         x, y = todo.pop(0)
         worker[0] += 1
-        await websocket.send(f"do {x} {y}")
+        try:
+          await websocket.send(f"do {x} {y}")
+        except:
+          todo.append((x, y))
     elif command == "what":
       await websocket.send(f"todo {WIDTH} {HEIGHT} {MAX_ITER} {ZOOM.a} {ZOOM.b} {X_ORIG.a} {X_ORIG.b} {Y_ORIG.a} {Y_ORIG.b}")
 
@@ -104,12 +107,17 @@ async def server(websocket, fin, todo, out, worker):
 async def main():
   worker = [0]
   todo = [(x, y) for x in range(WIDTH) for y in range(HEIGHT)]
-  out = numpy.zeros([WIDTH, HEIGHT], numpy.uint16)
 
   fin = asyncio.Future()
   async with websockets.serve(
-    lambda ws: server(ws, fin, todo, out, worker), "localhost", 8765
+    lambda ws: server(ws, fin, todo, out, worker), "0.0.0.0", 8765
   ):
     await fin
 
-asyncio.run(main())
+try:
+  out = numpy.zeros([WIDTH, HEIGHT], numpy.uint16)
+  asyncio.run(main())
+except KeyboardInterrupt:
+  import pickle
+  with open("backup", "wb") as b:
+    pickle.dump(out, b)
