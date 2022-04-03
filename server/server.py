@@ -48,21 +48,31 @@ async def server(websocket, fin, todo, out, worker):
       if not todo:
         await websocket.send("chill")
       else:
-        x, y = todo.pop(0)
-        worker[0] += 1
+        workers = []
+        ou = []
+        for i in range(16):
+          x, y = todo.pop(0)
+          worker[0] += 1
+          workers.append((x, y))
+          ou.append(f"{x} {y}")
+        ou = " ".join(ou)
+
         try:
-          await websocket.send(f"do {x} {y}")
+          await websocket.send(f"do 16 {ou}")
         except:
-          todo.append((x, y))
+          while workers:
+            todo.append(workers.pop())
     elif command == "what":
       await websocket.send(f"todo {WIDTH} {HEIGHT} {MAX_ITER} {ZOOM.a} {ZOOM.b} {X_ORIG.a} {X_ORIG.b} {Y_ORIG.a} {Y_ORIG.b}")
 
     elif command == "ready":
-      x = int(args[0])
-      y = int(args[1])
-      itera = int(args[2])
-      out[y, x] = itera
-      worker[0] -= 1
+      threads = int(args[0])
+      for i in range(threads):
+        x = int(args[3 * i + 1])
+        y = int(args[3 * i + 2])
+        itera = int(args[3 * i + 3])
+        out[y, x] = itera
+        worker[0] -= 1
 
       if not todo:
         await websocket.send("done")

@@ -2,6 +2,7 @@ import asyncio
 import websockets
 from pure import Pure
 from sys import argv
+from multiprocessing.pool import ThreadPool
 
 WIDTH = 50
 HEIGHT = 50
@@ -67,8 +68,15 @@ async def client():
         command, *args = (await websocket.recv()).split(" ")
         if command == "chill":
           break
-        itera = point(int(args[0]), int(args[1]))
-        await websocket.send(f"ready {args[0]} {args[1]} {itera}")
+        threads = int(args[0])
+        pool = ThreadPool()
+        itera = pool.map(
+          lambda a: point(*a),
+          [(int(args[2 * i + 1]), int(args[2 * i + 2])) for i in range(threads)]
+        )
+        out = " ".join([f"{args[2 * i + 1]} {args[2 * i + 2]} {itera[i]}"
+                 for i in range(threads)])
+        await websocket.send(f"ready {threads} {out}")
         print(args, itera)
         command = await websocket.recv()
         if command == "done":
