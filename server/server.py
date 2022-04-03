@@ -7,7 +7,7 @@ from pure import Pure
 WIDTH = 1000
 HEIGHT = 1000
 MAX_ITER = 500
-ZOOM = Pure(200)
+ZOOM = Pure(200_000)
 X_ORIG = Pure(-129, 2)
 Y_ORIG = Pure(699, 4)
 COLORS = 2048
@@ -50,69 +50,74 @@ async def server(websocket, fin, todo, out, worker):
       else:
         workers = []
         ou = []
-        for i in range(16):
+
+        threads = min(16, len(todo))
+        for i in range(threads):
           x, y = todo.pop(0)
           worker[0] += 1
           workers.append((x, y))
           ou.append(f"{x} {y}")
         ou = " ".join(ou)
+        print("sent job", ou)
 
         try:
-          await websocket.send(f"do 16 {ou}")
+          await websocket.send(f"do {threads} {ou}")
+          command, *args = (await websocket.recv()).split(" ")
+          if command == "ready":
+            threads = int(args[0])
+            for i in range(threads):
+              x = int(args[3 * i + 1])
+              y = int(args[3 * i + 2])
+              itera = int(args[3 * i + 3])
+              out[y, x] = itera
+              worker[0] -= 1
+
+            if not todo:
+              await websocket.send("done")
+            else:
+              await websocket.send("thanks")
+
+            if not todo and not worker[0]:
+              print("data ready, processing...")
+
+              num_iter = numpy.zeros((MAX_ITER), numpy.uint16)
+              for y in out:
+                for x in y:
+                  num_iter[x] += 1
+
+              total = 0
+              for n in num_iter:
+                total += n
+
+              sums = []
+              s = 0
+              for i in range(MAX_ITER):
+                s += num_iter[i] / total
+                sums.append(s)
+
+              hue = [
+                [
+                  sums[x] for x in y
+                ] for y in out
+              ]
+
+              print("rendering...")
+              image = numpy.array([
+                [
+                  colors[max(0, min(int(x * COLORS), COLORS - 1))] for x in y
+                ] for y in hue
+              ], numpy.uint8)
+
+              cv2.imwrite(f"output.png", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+
+              fin.set_result(0)
         except:
+          print("job cancelled", ou)
           while workers:
+            worker[0] -= 1
             todo.append(workers.pop())
     elif command == "what":
       await websocket.send(f"todo {WIDTH} {HEIGHT} {MAX_ITER} {ZOOM.a} {ZOOM.b} {X_ORIG.a} {X_ORIG.b} {Y_ORIG.a} {Y_ORIG.b}")
-
-    elif command == "ready":
-      threads = int(args[0])
-      for i in range(threads):
-        x = int(args[3 * i + 1])
-        y = int(args[3 * i + 2])
-        itera = int(args[3 * i + 3])
-        out[y, x] = itera
-        worker[0] -= 1
-
-      if not todo:
-        await websocket.send("done")
-      else:
-        await websocket.send("thanks")
-
-      if not todo and not worker[0]:
-        print("data ready, processing...")
-
-        num_iter = numpy.zeros((MAX_ITER), numpy.uint16)
-        for y in out:
-          for x in y:
-            num_iter[x] += 1
-
-        total = 0
-        for n in num_iter:
-          total += n
-
-        sums = []
-        s = 0
-        for i in range(MAX_ITER):
-          s += num_iter[i] / total
-          sums.append(s)
-
-        hue = [
-          [
-            sums[x] for x in y
-          ] for y in out
-        ]
-
-        print("rendering...")
-        image = numpy.array([
-          [
-            colors[max(0, min(int(x * COLORS), COLORS - 1))] for x in y
-          ] for y in hue
-        ], numpy.uint8)
-
-        cv2.imwrite(f"output.png", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
-
-        fin.set_result(0)
 
 async def main():
   worker = [0]

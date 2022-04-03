@@ -4,14 +4,17 @@ from pure import Pure
 from sys import argv
 from multiprocessing.pool import ThreadPool
 
-WIDTH = 50
-HEIGHT = 50
-MAX_ITER = 500
-ZOOM = Pure(200)
-X_ORIG = Pure(-129, 2)
-Y_ORIG = Pure(699, 4)
+settings = {}
 
 def point(x, y):
+
+  WIDTH = settings["WIDTH"]
+  HEIGHT = settings["HEIGHT"]
+  MAX_ITER = settings["MAX_ITER"]
+  ZOOM = settings["ZOOM"]
+  X_ORIG = settings["X_ORIG"]
+  Y_ORIG = settings["Y_ORIG"]
+
   x = (Pure(x) - Pure(WIDTH // 2)) / ZOOM + X_ORIG
   y = (Pure(HEIGHT // 2) - Pure(y)) / ZOOM + Y_ORIG
 
@@ -56,11 +59,12 @@ async def client():
     await websocket.send("what")
     command, *args = (await websocket.recv()).split(" ")
 
-    WIDTH, HEIGHT = int(args[0]), int(args[1])
-    MAX_ITER = int(args[2])
-    ZOOM = Pure(int(args[3]), int(args[4]))
-    X_ORIG = Pure(int(args[5]), int(args[6]))
-    Y_ORIG = Pure(int(args[7]), int(args[8]))
+    settings["WIDTH"] = int(args[0])
+    settings["HEIGHT"] = int(args[1])
+    settings["MAX_ITER"] = int(args[2])
+    settings["ZOOM"] = Pure(int(args[3]), int(args[4]))
+    settings["X_ORIG"] = Pure(int(args[5]), int(args[6]))
+    settings["Y_ORIG"] = Pure(int(args[7]), int(args[8]))
 
     while True:
       try:
